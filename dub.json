@@ -1,0 +1,9 @@
+{
+	"name": "gpio-raspberry",
+	"authors": [
+		"Szabo Bogdan"
+	],
+	"description": "A small library that allows gpio access for raspberry pi",
+	"copyright": "Copyright © 2016, Szabo Bogdan",
+	"license": "MIT"
+}
