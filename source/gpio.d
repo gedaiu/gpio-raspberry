@@ -14,6 +14,7 @@ version (X86_64)
 	static ulong[50] pinChanges;
 	static ulong[50] pinUp;
 	static ulong[50] pinDown;
+	static PinDirection[50] directions;
 
 	class GPIOPin
 	{
@@ -27,6 +28,7 @@ version (X86_64)
 			pin.pinNumber = pinNumber;
 			pin.direction = direction;
 
+			directions[pinNumber] = direction;
 			pinChanges[pinNumber] = 0;
 			pinUp[pinNumber] = 0;
 			pinDown[pinNumber] = 0;
