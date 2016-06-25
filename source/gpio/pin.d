@@ -1,6 +1,8 @@
 module gpio.pin;
 
+import std.stdio;
 import std.conv;
+import std.string;
 
 enum PinDirection
 {
@@ -81,9 +83,86 @@ version (X86_64)
 }
 version (ARM)
 {
+<<<<<<< Updated upstream
 	import std.stdio;
 	import std.string;
 	import std.file;
+=======
+	import core.sys.posix.sys.mman;
+	import core.sys.posix.fcntl;
+	import core.sys.posix.unistd;
+	import core.stdc.stdio;
+
+	private
+	{
+		enum BCM2708PeriBase = 0x20000000; // raspberry pi 1
+		enum BCM2836PeriBase = 0x3F000000; // raspberry pi 2
+		enum BCM2837PeriBase = 0x3F000000; // raspberry pi 3
+
+		enum GPIOBase = BCM2837PeriBase + 0x200000; /* GPIO controller */
+
+		enum pageSize = 4 * 1024;
+		enum blockSize = 4 * 1024;
+
+		void* gpioMap;
+		__gshared uint* gpio;
+
+		void GPIOInput(ubyte pinNumber)
+		{
+			*(gpio + ((pinNumber) / 10)) &= ~(7 << (((pinNumber) % 10) * 3));
+		}
+
+		void GPIOOutput(ubyte pinNumber)
+		{
+			pragma(inline, true);
+			GPIOInput(pinNumber);
+			pragma(inline, false);
+
+			*(gpio + ((pinNumber) / 10)) |= (1 << (((pinNumber) % 10) * 3));
+		}
+
+		bool GPIOGet(ubyte pinNumber)
+		{
+			return (*(gpio + 13) & (1 << pinNumber)) == 0 ? false : true;
+		}
+
+		void GPIOSet(ubyte pinNumber, bool value)
+		{
+			if (value)
+			{
+				*(gpio + 7) = 1 << pinNumber;
+			}
+			else
+			{
+				*(gpio + 10) = 1 << pinNumber;
+			}
+		}
+	}
+
+	shared static this()
+	{
+		auto fileName = "/dev/mem".toStringz;
+		auto mem = open(fileName, O_RDWR | O_SYNC);
+	
+		writeln(mem);
+		if (mem < 0)
+		{
+			perror("open\0".ptr);
+			throw new Exception("Can't open `/dev/mem`");
+		}
+
+		gpioMap = mmap(null, blockSize, PROT_READ | PROT_WRITE, MAP_SHARED, mem, GPIOBase);
+		close(mem);
+
+		if (gpioMap == MAP_FAILED)
+		{
+			perror("mmap\0".ptr);
+			throw new Exception("mmap error " ~ (cast(int) gpioMap).to!string ~ "\n");
+		}
+
+		gpio = cast(uint*) gpioMap;
+	}
+>>>>>>> Stashed changes
 
 	class GPIOPin
 	{
