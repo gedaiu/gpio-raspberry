@@ -18,7 +18,8 @@ version (X86_64)
 
 	class GPIOPin
 	{
-		private {
+		private
+		{
 			int pinNumber;
 		}
 
@@ -59,9 +60,12 @@ version (X86_64)
 				pinValues[pinNumber] = value;
 				pinChanges[pinNumber]++;
 
-				if(value) {
+				if (value)
+				{
 					pinUp[pinNumber]++;
-				} else {
+				}
+				else
+				{
 					pinDown[pinNumber]++;
 				}
 			}
@@ -81,23 +85,84 @@ version (X86_64)
 }
 version (ARM)
 {
-	import std.stdio;
-	import std.string;
-	import std.file;
+	import core.sys.posix.sys.mman;
+	import core.sys.posix.fcntl;
+	import core.sys.posix.unistd;
+
+	private
+	{
+		enum BCM2708PeriBase = 0x20000000; // raspberry pi 1
+		enum BCM2836PeriBase = 0x3F000000; // raspberry pi 2
+		enum BCM2837PeriBase = 0x3F000000; // raspberry pi 3
+
+		enum GPIOBase = BCM2837PeriBase + 0x200000; /* GPIO controller */
+
+		enum pageSize = 4 * 1024;
+		enum blockSize = 4 * 1024;
+
+		void* gpioMap;
+		__gshared uint* gpio;
+
+		void GPIOInput(ubyte pinNumber)
+		{
+			*(gpio + ((pinNumber) / 10)) &= ~(7 << (((pinNumber) % 10) * 3));
+		}
+
+		void GPIOOutput(ubyte pinNumber)
+		{
+			pragma(inline, true);
+			GPIOInput(pinNumber);
+			pragma(inline, false);
+
+			*(gpio + ((pinNumber) / 10)) |= (1 << (((pinNumber) % 10) * 3));
+		}
+
+		bool GPIOGet(ubyte pinNumber)
+		{
+			return (*(gpio + 13) & (1 << pinNumber)) == 0 ? false : true;
+		}
+
+		void GPIOSet(ubyte pinNumber, bool value)
+		{
+			if (value)
+			{
+				*(gpio + 7) = 1 << pinNumber;
+			}
+			else
+			{
+				*(gpio + 10) = 1 << pinNumber;
+			}
+		}
+	}
+
+	shared static this()
+	{
+		const char[8] fileName = "/dev/mem\0";
+		auto mem = open(fileName.ptr, O_RDWR | O_SYNC);
+
+		if (!mem)
+		{
+			throw new Exception("Can't open `/dev/mem`");
+		}
+
+		gpioMap = mmap(null, blockSize, PROT_READ | PROT_WRITE, MAP_SHARED, mem, GPIOBase);
+		close(mem);
+
+		if (gpioMap == MAP_FAILED)
+		{
+			throw new Exception("mmap error " ~ (cast(int) gpioMap).to!string ~ "\n");
+		}
+
+		gpio = cast(uint*) gpioMap;
+	}
 
 	class GPIOPin
 	{
 		private
 		{
-			enum exportFile = "/sys/class/gpio/export";
-			enum unexportFile = "/sys/class/gpio/unexport";
 			PinDirection _direction;
 
 			ubyte pinNumber;
-
-			string pinFolder;
-			string directionFile;
-			string valueFile;
 		}
 
 		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output)
@@ -111,58 +176,22 @@ version (ARM)
 		this(ubyte pinNumber)
 		{
 			this.pinNumber = pinNumber;
-
-			pinFolder = "/sys/class/gpio/gpio" ~ to!string(pinNumber);
-			directionFile = pinFolder ~ "/direction";
-			valueFile = pinFolder ~ "/value";
-
-			activate();
-		}
-
-		~this()
-		{
-			deactivate();
-		}
-
-		private
-		{
-			void writeLine(string file, string str)
-			{
-				File f = File(file, "w+");
-				f.writeln(str);
-			}
-
-			string readLine(string file)
-			{
-				File f = File(file, "r");
-				string line = strip(f.readln);
-				return (line);
-			}
-
-			void activate()
-			{
-				if (!exists(pinFolder))
-				{
-					writeLine(exportFile, to!string(pinNumber));
-				}
-			}
-
-			void deactivate()
-			{
-				if (exists(pinFolder))
-				{
-					writeLine(unexportFile, to!string(pinNumber));
-				}
-			}
 		}
 
 		@property
 		{
-
 			void direction(PinDirection newPinDirection)
 			{
 				_direction = newPinDirection;
-				writeLine(directionFile, newPinDirection == PinDirection.input ? "in" : "out");
+
+				if (newPinDirection == PinDirection.input)
+				{
+					GPIOInput(pinNumber);
+				}
+				else
+				{
+					GPIOOutput(pinNumber);
+				}
 			}
 
 			PinDirection direction()
@@ -178,7 +207,7 @@ version (ARM)
 			}
 			body
 			{
-				writeLine(valueFile, value ? "1" : "0");
+				return GPIOSet(pinNumber, value);
 			}
 
 			bool value()
@@ -189,7 +218,7 @@ version (ARM)
 			}
 			body
 			{
-				return readLine(valueFile) == "0" ? false : true;
+				return GPIOGet(pinNumber);
 			}
 		}
 	}
