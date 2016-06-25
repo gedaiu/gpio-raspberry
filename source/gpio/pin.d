@@ -1,4 +1,4 @@
-module gpio;
+module gpio.pin;
 
 import std.conv;
 
@@ -18,15 +18,15 @@ version (X86_64)
 
 	class GPIOPin
 	{
-		int pinNumber;
-		PinDirection direction = PinDirection.output;
+		private {
+			int pinNumber;
+		}
 
 		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output)
 		{
 			auto pin = new GPIOPin;
 
 			pin.pinNumber = pinNumber;
-			pin.direction = direction;
 
 			directions[pinNumber] = direction;
 			pinChanges[pinNumber] = 0;
@@ -38,6 +38,16 @@ version (X86_64)
 
 		@property
 		{
+			void direction(PinDirection newPinDirection)
+			{
+				directions[pinNumber] = newPinDirection;
+			}
+
+			PinDirection direction()
+			{
+				return directions[pinNumber];
+			}
+
 			void value(bool value)
 			in
 			{
