@@ -23,6 +23,7 @@ version (X86_64)
 		private
 		{
 			int pinNumber;
+			bool lastValue;
 		}
 
 		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output)
@@ -37,6 +38,10 @@ version (X86_64)
 			pinDown[pinNumber] = 0;
 
 			return pin;
+		}
+
+		void log() {
+			write(pinValues[pinNumber]);
 		}
 
 		@property
@@ -145,7 +150,7 @@ version (ARM)
 	{
 		auto fileName = "/dev/mem".toStringz;
 		auto mem = open(fileName, O_RDWR | O_SYNC);
-	
+
 		writeln(mem);
 		if (mem < 0)
 		{
@@ -172,6 +177,7 @@ version (ARM)
 			PinDirection _direction;
 
 			ubyte pinNumber;
+			ubyte lastValue;
 		}
 
 		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output)
@@ -185,6 +191,10 @@ version (ARM)
 		this(ubyte pinNumber)
 		{
 			this.pinNumber = pinNumber;
+		}
+
+		void log() {
+			write(lastValue);
 		}
 
 		@property
@@ -216,6 +226,7 @@ version (ARM)
 			}
 			body
 			{
+				lastValue = value;
 				return GPIOSet(pinNumber, value);
 			}
 

@@ -2,6 +2,7 @@ module gpio.pinbyte;
 
 public import gpio.pin;
 
+import std.stdio;
 import std.array;
 import std.algorithm.iteration;
 
@@ -29,6 +30,14 @@ struct GPIOPinByte
 		foreach (pin; dataPins)
 		{
 			pin.direction = PinDirection.output;
+		}
+	}
+
+	void log() {
+		foreach (i; 0 .. 8)
+		{
+			write(i, " ");
+			dataPins[i].log;
 		}
 	}
 
