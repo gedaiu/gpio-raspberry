@@ -36,7 +36,7 @@ struct GPIOPinByte
 	void log() {
 		foreach (i; 0 .. 8)
 		{
-			write(i, " ");
+			write(" [", i, "]:");
 			dataPins[i].log;
 		}
 	}
