@@ -27,6 +27,17 @@ version (X86_64)
 	static ulong[50] pinDown;
 	static PinDirection[50] directions;
 
+
+	void resetPins() {
+		foreach(i; 0 .. 50) {
+			pinValues[i] = false;
+			pinChanges[i] = 0;
+			pinUp[i] = 0;
+			pinDown[i] = 0;
+			directions[i] = PinDirection.output;
+		}
+	}
+
 	class GPIOPin
 	{
 		private
