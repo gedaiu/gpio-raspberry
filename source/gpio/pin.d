@@ -4,10 +4,19 @@ import std.stdio;
 import std.conv;
 import std.string;
 
+import core.thread;
+
 enum PinDirection
 {
 	input,
 	output
+}
+
+enum PinPull : ubyte
+{
+	off = 0,
+	up = 1,
+	down = 2
 }
 
 version (X86_64)
@@ -26,7 +35,7 @@ version (X86_64)
 			bool lastValue;
 		}
 
-		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output)
+		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output, PinPull pull = PinPull.down)
 		{
 			auto pin = new GPIOPin;
 
@@ -40,13 +49,14 @@ version (X86_64)
 			return pin;
 		}
 
-		void log() {
+		void log()
+		{
 			write(pinValues[pinNumber]);
 		}
 
 		@property
 		{
-			void direction(PinDirection newPinDirection)
+			void direction(PinDirection newPinDirection, PinPull pull = PinPull.down)
 			{
 				directions[pinNumber] = newPinDirection;
 			}
@@ -90,6 +100,7 @@ version (X86_64)
 		}
 	}
 }
+
 version (ARM)
 {
 	import std.stdio;
@@ -106,6 +117,10 @@ version (ARM)
 		enum BCM2836PeriBase = 0x3F000000; // raspberry pi 2
 		enum BCM2837PeriBase = 0x3F000000; // raspberry pi 3
 
+		immutable uint GPPUD = 0x0094; ///< GPIO Pin Pull-up/down Enable
+		immutable uint GPPUDCLK0 = 0x0098; ///< GPIO Pin Pull-up/down Enable Clock 0
+		immutable uint GPPUDCLK1 = 0x009c; ///< GPIO Pin Pull-up/down Enable Clock 1
+
 		enum GPIOBase = BCM2837PeriBase + 0x200000; /* GPIO controller */
 
 		enum pageSize = 4 * 1024;
@@ -114,15 +129,19 @@ version (ARM)
 		void* gpioMap;
 		__gshared uint* gpio;
 
-		void GPIOInput(ubyte pinNumber)
+		void GPIOInput(ubyte pinNumber, PinPull pull)
 		{
 			*(gpio + ((pinNumber) / 10)) &= ~(7 << (((pinNumber) % 10) * 3));
+
+			pragma(inline, true);
+			GPIOPinPull(pinNumber, pull);
+			pragma(inline, false);
 		}
 
-		void GPIOOutput(ubyte pinNumber)
+		void GPIOOutput(ubyte pinNumber, PinPull pull = PinPull.down)
 		{
 			pragma(inline, true);
-			GPIOInput(pinNumber);
+			GPIOInput(pinNumber, pull);
 			pragma(inline, false);
 
 			*(gpio + ((pinNumber) / 10)) |= (1 << (((pinNumber) % 10) * 3));
@@ -131,6 +150,34 @@ version (ARM)
 		bool GPIOGet(ubyte pinNumber)
 		{
 			return (*(gpio + 13) & (1 << pinNumber)) == 0 ? false : true;
+		}
+
+		void GPIOPull(ubyte pud)
+		{
+			uint* paddr = gpio + GPPUD / 4;
+			*paddr = pud;
+			*paddr = pud;
+		}
+
+		void GPIOPudClk(ubyte pin, ubyte on)
+		{
+			uint* paddr = gpio + GPPUDCLK0 / 4 + pin / 32;
+			ubyte shift = pin % 32;
+
+			*paddr = (on ? 1 : 0) << shift;
+			*paddr = (on ? 1 : 0) << shift;
+		}
+
+		void GPIOPinPull(ubyte pin, ubyte pud)
+		{
+			GPIOPull(pud);
+			Thread.sleep(10.usecs);
+
+			GPIOPudClk(pin, 1);
+			Thread.sleep(10.usecs);
+
+			GPIOPull(0);
+			GPIOPudClk(pin, 0);
 		}
 
 		void GPIOSet(ubyte pinNumber, bool value)
@@ -180,10 +227,10 @@ version (ARM)
 			ubyte lastValue;
 		}
 
-		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output)
+		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output, PinPull pull = PinPull.down)
 		{
 			auto pin = new GPIOPin(pinNumber);
-			pin.direction = direction;
+			pin.direction(direction, pull);
 
 			return pin;
 		}
@@ -193,19 +240,20 @@ version (ARM)
 			this.pinNumber = pinNumber;
 		}
 
-		void log() {
+		void log()
+		{
 			write(lastValue);
 		}
 
 		@property
 		{
-			void direction(PinDirection newPinDirection)
+			void direction(PinDirection newPinDirection, PinPull pull = PinPull.down)
 			{
 				_direction = newPinDirection;
 
 				if (newPinDirection == PinDirection.input)
 				{
-					GPIOInput(pinNumber);
+					GPIOInput(pinNumber, pull);
 				}
 				else
 				{
