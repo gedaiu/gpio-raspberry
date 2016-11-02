@@ -19,6 +19,20 @@ enum PinPull : ubyte
 	down = 2
 }
 
+interface IGPIOPin {
+	void log();
+
+	@property
+	{
+		void direction(PinDirection newPinDirection, PinPull pull = PinPull.down);
+		PinDirection direction();
+		void value(bool value);
+		bool value();
+
+		long changes();
+	}
+}
+
 version (X86_64)
 {
 	static bool[50] pinValues;
@@ -38,7 +52,7 @@ version (X86_64)
 		}
 	}
 
-	class GPIOPin
+	class GPIOPin : IGPIOPin
 	{
 		private
 		{
@@ -70,6 +84,10 @@ version (X86_64)
 			void direction(PinDirection newPinDirection, PinPull pull = PinPull.down)
 			{
 				directions[pinNumber] = newPinDirection;
+			}
+
+			long changes() {
+				return pinChanges[pinNumber];
 			}
 
 			PinDirection direction()
@@ -228,7 +246,7 @@ version (ARM)
 		gpio = cast(uint*) gpioMap;
 	}
 
-	class GPIOPin
+	class GPIOPin : IGPIOPin
 	{
 		private
 		{
@@ -236,6 +254,7 @@ version (ARM)
 
 			ubyte pinNumber;
 			ubyte lastValue;
+			long _changes = 0;
 		}
 
 		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output, PinPull pull = PinPull.down)
@@ -258,6 +277,10 @@ version (ARM)
 
 		@property
 		{
+			long changes() {
+				return _changes;
+			}
+
 			void direction(PinDirection newPinDirection, PinPull pull = PinPull.down)
 			{
 				_direction = newPinDirection;
@@ -286,6 +309,7 @@ version (ARM)
 			body
 			{
 				lastValue = value;
+				_changes++;
 				return GPIOSet(pinNumber, value);
 			}
 
