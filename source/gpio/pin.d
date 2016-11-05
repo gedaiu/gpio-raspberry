@@ -35,12 +35,11 @@ interface IGPIOPin {
 
 version (X86_64)
 {
-	static bool[50] pinValues;
-	static ulong[50] pinChanges;
-	static ulong[50] pinUp;
-	static ulong[50] pinDown;
-	static PinDirection[50] directions;
-
+	static __gshared bool[50] pinValues;
+	static __gshared ulong[50] pinChanges;
+	static __gshared ulong[50] pinUp;
+	static __gshared ulong[50] pinDown;
+	static __gshared PinDirection[50] directions;
 
 	void resetPins() {
 		foreach(i; 0 .. 50) {
@@ -227,7 +226,6 @@ version (ARM)
 		auto fileName = "/dev/mem".toStringz;
 		auto mem = open(fileName, O_RDWR | O_SYNC);
 
-		writeln(mem);
 		if (mem < 0)
 		{
 			perror("open\0".ptr);
