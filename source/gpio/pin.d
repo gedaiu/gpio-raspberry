@@ -6,6 +6,8 @@ import std.string;
 
 import core.thread;
 
+alias PinNumber = ubyte;
+
 enum PinDirection
 {
 	input,
@@ -51,15 +53,35 @@ version (X86_64)
 		}
 	}
 
+	void setDebugValue(const PinNumber number, bool value) {
+		pinValues[number] = value;
+	};
+
+	bool debugValue(const PinNumber number) {
+		return pinValues[number];
+	};
+
+	auto stateChanges(const PinNumber number) {
+		return pinChanges[number];
+	}
+
+	auto stateUpChanges(const PinNumber number) {
+		return pinUp[number];
+	}
+
+	auto stateDownChanges(const PinNumber number) {
+		return pinDown[number];
+	}
+
 	class GPIOPin : IGPIOPin
 	{
 		private
 		{
-			int pinNumber;
+			PinNumber pinNumber;
 			bool lastValue;
 		}
 
-		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output, PinPull pull = PinPull.down)
+		static GPIOPin opCall(PinNumber pinNumber, PinDirection direction = PinDirection.output, PinPull pull = PinPull.down)
 		{
 			auto pin = new GPIOPin;
 
@@ -250,12 +272,12 @@ version (ARM)
 		{
 			PinDirection _direction;
 
-			ubyte pinNumber;
+			PinNumber pinNumber;
 			ubyte lastValue;
 			long _changes = 0;
 		}
 
-		static GPIOPin opCall(ubyte pinNumber, PinDirection direction = PinDirection.output, PinPull pull = PinPull.down)
+		static GPIOPin opCall(PinNumber pinNumber, PinDirection direction = PinDirection.output, PinPull pull = PinPull.down)
 		{
 			auto pin = new GPIOPin(pinNumber);
 			pin.direction(direction, pull);
@@ -263,7 +285,7 @@ version (ARM)
 			return pin;
 		}
 
-		this(ubyte pinNumber)
+		this(PinNumber pinNumber)
 		{
 			this.pinNumber = pinNumber;
 		}
